@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Quarterly business review",
+  "type": "object",
+  "required": ["company", "report", "kpis", "monthly", "regions", "products", "transactions"],
+  "properties": {
+    "company": {
+      "type": "object",
+      "required": ["name", "address"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "tagline": {"type": "string"},
+        "address": {"type": "string"}
+      }
+    },
+    "report": {
+      "type": "object",
+      "required": ["title", "period", "period_range", "prepared_for", "prepared_by", "date", "currency", "monthly_target"],
+      "properties": {
+        "title": {"type": "string"},
+        "period": {"type": "string"},
+        "period_range": {"type": "string"},
+        "prepared_for": {"type": "string"},
+        "prepared_by": {
+          "type": "object",
+          "required": ["name", "title"],
+          "properties": {"name": {"type": "string"}, "title": {"type": "string"}}
+        },
+        "date": {"type": "string"},
+        "currency": {"type": "string", "maxLength": 3},
+        "monthly_target": {"type": "number", "minimum": 0},
+        "confidential": {"type": "boolean"}
+      }
+    },
+    "kpis": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "required": ["label", "value", "format", "change_pct"],
+        "properties": {
+          "label": {"type": "string"},
+          "value": {"type": "number"},
+          "format": {"enum": ["money", "percent", "number"]},
+          "change_pct": {"type": "number"},
+          "lower_is_better": {"type": "boolean"}
+        }
+      }
+    },
+    "highlights": {"type": "array", "items": {"type": "string"}},
+    "monthly": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "required": ["month", "revenue"],
+        "properties": {"month": {"type": "string", "maxLength": 3}, "revenue": {"type": "number", "minimum": 0}}
+      }
+    },
+    "regions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "revenue", "growth_pct", "customers"],
+        "properties": {
+          "name": {"type": "string"},
+          "revenue": {"type": "number", "minimum": 0},
+          "growth_pct": {"type": "number"},
+          "customers": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "category", "units", "revenue"],
+        "properties": {
+          "name": {"type": "string"},
+          "category": {"type": "string"},
+          "units": {"type": "integer", "minimum": 0},
+          "revenue": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "transactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "invoice", "customer", "region", "amount", "status"],
+        "properties": {
+          "date": {"type": "string", "format": "date"},
+          "invoice": {"type": "string"},
+          "customer": {"type": "string"},
+          "region": {"type": "string"},
+          "amount": {"type": "number"},
+          "status": {"enum": ["paid", "pending", "overdue"]}
+        }
+      }
+    },
+    "notes": {"type": "string"}
+  }
+}

@@ -1,0 +1,33 @@
+# Local stack: the app (production image) plus MongoDB.
+#   docker compose up --build        # everything
+#   docker compose up -d mongo       # just MongoDB, for running the app or tests from your machine
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      APP_MONGO__URL: mongodb://mongo:27017
+      # Set a real key outside local development.
+      APP_FILES__SIGNING_KEY: ${APP_FILES__SIGNING_KEY:-local-dev-signing-key}
+    volumes:
+      - files:/srv/.data
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  mongo:
+    image: mongo:8
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mongo-data:
+  files:

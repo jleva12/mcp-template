@@ -1,0 +1,106 @@
+# Test your FastAPI endpoints
+
+GET http://127.0.0.1:8000/
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/hello/User
+Accept: application/json
+
+###
+
+GET http://127.0.0.1:8000/health/ready
+Accept: application/json
+
+###
+
+# MCP: open a session. Copy the Mcp-Session-Id response header into @session below.
+POST http://127.0.0.1:8000/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+
+{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "http-client", "version": "1"}}}
+
+###
+
+@session = paste-session-id-here
+
+POST http://127.0.0.1:8000/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Mcp-Session-Id: {{session}}
+Mcp-Protocol-Version: 2025-06-18
+
+{"jsonrpc": "2.0", "method": "notifications/initialized"}
+
+###
+
+POST http://127.0.0.1:8000/mcp
+Content-Type: application/json
+Accept: application/json, text/event-stream
+Mcp-Session-Id: {{session}}
+Mcp-Protocol-Version: 2025-06-18
+
+{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "greet", "arguments": {"name": "User"}}}
+
+###
+
+
+# --- Templates -> PDF / DOCX --------------------------------------------------
+# Upload a template (one HTML file, CSS in <style>, images as data: URIs). Copy template_id below.
+POST http://127.0.0.1:8000/templates
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="name"
+
+Invoice
+--boundary
+Content-Disposition: form-data; name="json_schema"
+
+{"type": "object", "required": ["number", "customer"], "properties": {"number": {"type": "string"}, "customer": {"type": "string"}}}
+--boundary
+Content-Disposition: form-data; name="file"; filename="invoice.html"
+Content-Type: text/html
+
+<html><head><style>@page { size: A4; margin: 2cm } h1 { color: #0b5394 }</style></head>
+<body><h1>Invoice {{ number }}</h1><p>Bill to: {{ customer }}</p></body></html>
+--boundary--
+
+###
+
+@template_id = paste-template-id-here
+
+# Render a PDF. template_data holds the template's variables; correlation_id (optional) is your own
+# ID for tracking, returned on the document. Add ?version=N to render an older version.
+POST http://127.0.0.1:8000/templates/{{template_id}}/documents
+Content-Type: application/json
+
+{
+  "correlation_id": "order-8841",
+  "template_data": {"number": "INV-1001", "customer": "Acme Corp"}
+}
+
+###
+
+# The same template as a Word document: output_format is "pdf" (default) or "docx".
+POST http://127.0.0.1:8000/templates/{{template_id}}/documents
+Content-Type: application/json
+
+{
+  "output_format": "docx",
+  "template_data": {"number": "INV-1001", "customer": "Acme Corp"}
+}
+
+###
+
+@document_id = paste-document-id-here
+
+GET http://127.0.0.1:8000/documents/{{document_id}}
+
+###
+
+GET http://127.0.0.1:8000/documents/{{document_id}}/file
+
+###

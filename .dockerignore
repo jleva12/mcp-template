@@ -1,0 +1,15 @@
+.venv
+.idea
+.git
+.env
+.env.*
+!.env.example
+**/__pycache__
+.pytest_cache
+.ruff_cache
+tests
+test_main.http
+Dockerfile
+.dockerignore
+.data
+examples

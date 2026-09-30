@@ -1,0 +1,57 @@
+[project]
+name = "template-mcp"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "beanie>=2.2.0",
+    "boto3>=1.43.105",
+    "fastapi>=0.142.2",
+    "fastmcp>=4.0.10",
+    "jinja2>=3.1.6",
+    "jsonschema>=4.26.0",
+    "pydantic-settings>=2.15.0",
+    "pypandoc-binary>=1.17",
+    "python-multipart>=0.0.32",
+    "structlog>=26.1.0",
+    "uvicorn[standard]>=0.54.0",
+    "weasyprint>=70.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "ruff>=0.16.9",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 120
+target-version = "py314"
+
+[tool.ruff.format]
+indent-style = "tab"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC", "RUF"]
+ignore = ["W191", "E101", "RUF012"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastMCP injects tool dependencies through parameter defaults, like FastAPI's Depends (already allowed).
+extend-immutable-calls = [
+    "fastmcp.dependencies.Depends",
+    "fastmcp.dependencies.CurrentAccessToken",
+    "fastmcp.dependencies.CurrentContext",
+    "fastmcp.dependencies.CurrentHeaders",
+    "fastmcp.dependencies.CurrentRequest",
+    "fastmcp.dependencies.TokenClaim",
+]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

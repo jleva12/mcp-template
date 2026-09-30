@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ report.title }} · {{ report.period }}</title>
+{#- ── Formatting helpers ─────────────────────────────────────────────── -#}
+{%- macro money(value, cents=false) -%}
+  {{ report.currency }}{{ ("{:,.2f}" if cents else "{:,.0f}").format(value) }}
+{%- endmacro -%}
+{%- macro kpi_value(kpi) -%}
+  {%- if kpi.format == "money" -%}{{ money(kpi.value) }}
+  {%- elif kpi.format == "percent" -%}{{ "{:.1f}".format(kpi.value) }}%
+  {%- else -%}{{ "{:,.0f}".format(kpi.value) }}{%- endif -%}
+{%- endmacro -%}
+{%- macro delta(pct, lower_is_better=false, unit="%") -%}
+  {%- set good = (pct <= 0) if lower_is_better else (pct >= 0) -%}
+  <span class="delta {{ 'good' if good else 'bad' }}">{{ "▲" if pct >= 0 else "▼" }} {{ "{:.1f}".format(pct | abs) }}{{ unit }}</span>
+{%- endmacro -%}
+{%- macro status_badge(status) -%}
+  <span class="badge badge-{{ status }}">{{ status | capitalize }}</span>
+{%- endmacro -%}
+<style>
+  /* ── Page setup ───────────────────────────────────────────────────── */
+  @page {
+    size: A4;
+    margin: 24mm 18mm 20mm 18mm;
+    @top-left { content: element(brand); vertical-align: bottom; padding-bottom: 3mm; }
+    @top-right {
+      content: string(section);
+      vertical-align: bottom; padding-bottom: 3mm;
+      font-size: 8pt; color: #6b7a90; text-transform: uppercase; letter-spacing: 0.08em;
+    }
+    @bottom-left {
+      {% if report.confidential | default(false) %}content: "Confidential · Internal use only";{% endif %}
+      font-size: 7.5pt; color: #9aa6b8;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " of " counter(pages);
+      font-size: 7.5pt; color: #6b7a90;
+    }
+  }
+  @page cover {
+    margin: 0;
+    @top-left { content: none; } @top-right { content: none; }
+    @bottom-left { content: none; } @bottom-right { content: none; }
+  }
+
+  /* ── Base ─────────────────────────────────────────────────────────── */
+  :root { --navy: #0f2a44; --blue: #1d4e89; --teal: #2a9d8f; --muted: #6b7a90;
+          --line: #dde3ea; --soft: #f4f6f9; --good: #1b7f3b; --bad: #c0392b; --warn: #b7791f; }
+  html { font-family: "Helvetica Neue", Arial, "Liberation Sans", "DejaVu Sans", sans-serif;
+         font-size: 9.5pt; color: #1f2d3d; line-height: 1.45; }
+  h1, h2, h3 { color: var(--navy); line-height: 1.2; }
+  h2 { font-size: 17pt; margin: 0 0 4mm; padding-bottom: 2mm; border-bottom: 2px solid var(--teal);
+       string-set: section content(); }
+  h3 { font-size: 11pt; margin: 6mm 0 2mm; }
+  body { margin: 0; }
+  p { margin: 0 0 3mm; }
+  .section { break-before: page; }
+  .muted { color: var(--muted); }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Running header brand (repeated on every page via element()) */
+  .brand { position: running(brand); font-size: 8.5pt; font-weight: bold; color: var(--navy); }
+  .brand img { width: 5mm; height: 5mm; vertical-align: middle; margin-right: 1.5mm; }
+
+  /* ── Cover ────────────────────────────────────────────────────────── */
+  .cover { page: cover; box-sizing: border-box; height: 297mm; padding: 38mm 22mm 0; color: #fff;
+           background: linear-gradient(155deg, #0f2a44 0%, #1d4e89 62%, #2a9d8f 100%); }
+  .cover .logo { width: 22mm; height: 22mm; }
+  .cover .company { font-size: 13pt; letter-spacing: 0.12em; text-transform: uppercase; margin-top: 6mm; opacity: 0.85; }
+  .cover h1 { color: #fff; font-size: 34pt; margin: 38mm 0 4mm; }
+  .cover .period { font-size: 18pt; font-weight: 300; }
+  .cover .range { font-size: 11pt; opacity: 0.8; margin-top: 2mm; }
+  .cover .meta { margin-top: 70mm; border-top: 1px solid rgba(255,255,255,0.35); padding-top: 6mm; font-size: 10pt; }
+  .cover .meta td { padding: 1mm 8mm 1mm 0; vertical-align: top; }
+  .cover .meta .label { opacity: 0.7; text-transform: uppercase; font-size: 7.5pt; letter-spacing: 0.1em; }
+
+  /* ── Table of contents ────────────────────────────────────────────── */
+  .toc { list-style: none; padding: 0; margin: 0 0 10mm; }
+  .toc li { margin: 2mm 0; font-size: 10.5pt; }
+  .toc a { color: inherit; text-decoration: none; }
+  .toc a::after { content: leader(".") target-counter(attr(href), page); color: var(--muted); }
+
+  /* ── KPI cards ────────────────────────────────────────────────────── */
+  .kpis { display: flex; margin: 0 -1.5mm 6mm; }
+  .kpi { flex: 1; margin: 0 1.5mm; padding: 4mm; background: var(--soft); border-top: 3px solid var(--blue); }
+  .kpi .label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .kpi .value { font-size: 17pt; font-weight: bold; color: var(--navy); margin: 1.5mm 0; }
+  .delta { font-size: 8.5pt; font-weight: bold; }
+  .delta.good { color: var(--good); } .delta.bad { color: var(--bad); }
+
+  .highlights { margin: 0; padding-left: 5mm; }
+  .highlights li { margin-bottom: 2mm; }
+  .callout { background: #eef7f6; border-left: 3px solid var(--teal); padding: 3mm 4mm; margin: 5mm 0; }
+
+  /* ── Tables ───────────────────────────────────────────────────────── */
+  table.data { width: 100%; border-collapse: collapse; margin-bottom: 5mm; }
+  table.data th { text-align: left; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.06em;
+                  color: var(--muted); border-bottom: 1.5px solid var(--navy); padding: 2mm 2mm; }
+  table.data td { padding: 1.8mm 2mm; border-bottom: 1px solid var(--line); }
+  table.data tr { break-inside: avoid; }
+  table.data tbody tr:nth-child(even) td { background: #fafbfc; }
+  table.data th.num { text-align: right; }
+  table.data tr.total td { font-weight: bold; border-top: 1.5px solid var(--navy); border-bottom: none; background: none; }
+  table.data .group td { background: var(--soft); font-weight: bold; color: var(--navy); font-size: 8.5pt; }
+  table.data .subtotal td { font-style: italic; color: var(--muted); }
+
+  .share { white-space: nowrap; }
+  .bar { background: var(--line); height: 2.2mm; width: 22mm; display: inline-block; vertical-align: middle; margin-right: 1.5mm; }
+  .bar span { display: block; height: 100%; background: var(--teal); }
+
+  .badge { font-size: 7pt; font-weight: bold; padding: 0.6mm 2mm; border-radius: 2mm; text-transform: uppercase; }
+  .badge-paid { background: #e3f4e8; color: var(--good); }
+  .badge-pending { background: #fdf3e1; color: var(--warn); }
+  .badge-overdue { background: #fbe5e3; color: var(--bad); }
+
+  .chart { width: 100%; height: auto; margin: 2mm 0 4mm; }
+  .legend { font-size: 8pt; color: var(--muted); margin-bottom: 6mm; }
+  .legend i { display: inline-block; width: 3mm; height: 3mm; margin: 0 1mm 0 4mm; vertical-align: middle; }
+
+  .receivables { display: flex; margin: 0 -1.5mm 5mm; }
+  .receivables div { flex: 1; margin: 0 1.5mm; padding: 3mm 4mm; border: 1px solid var(--line); }
+  .receivables strong { display: block; font-size: 13pt; }
+
+  .signoff { margin-top: 12mm; break-inside: avoid; }
+  .signoff .line { width: 60mm; border-top: 1px solid #1f2d3d; margin-top: 14mm; padding-top: 1.5mm; }
+  .notes { font-size: 8pt; color: var(--muted); border-top: 1px solid var(--line); padding-top: 3mm; margin-top: 8mm; }
+</style>
+</head>
+<body>
+
+{#- ── Cover ──────────────────────────────────────────────────────────── -#}
+<section class="cover">
+  <svg class="logo" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="32" cy="32" r="30" fill="none" stroke="#ffffff" stroke-width="2.5"/>
+    <path d="M32 6 L37.5 26.5 L58 32 L37.5 37.5 L32 58 L26.5 37.5 L6 32 L26.5 26.5 Z" fill="#ffffff"/>
+  </svg>
+  <div class="company">{{ company.name }}</div>
+  <h1>{{ report.title }}</h1>
+  <div class="period">{{ report.period }}</div>
+  <div class="range">{{ report.period_range }}</div>
+  <table class="meta">
+    <tr><td class="label">Prepared for</td><td class="label">Prepared by</td><td class="label">Date</td></tr>
+    <tr>
+      <td>{{ report.prepared_for }}</td>
+      <td>{{ report.prepared_by.name }}<br><span style="opacity:.75">{{ report.prepared_by.title }}</span></td>
+      <td>{{ report.date }}</td>
+    </tr>
+  </table>
+</section>
+
+{#- Running header content; element(brand) places it on every following page. -#}
+<div class="brand"><img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA2NCA2NCI+PGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMzAiIGZpbGw9IiMxZDRlODkiLz48cGF0aCBkPSJNMzIgOSBMMzcgMjcgTDU1IDMyIEwzNyAzNyBMMzIgNTUgTDI3IDM3IEw5IDMyIEwyNyAyNyBaIiBmaWxsPSIjZmZmZmZmIi8+PC9zdmc+" alt="">{{ company.name }}</div>
+
+{#- ── Contents & executive summary ───────────────────────────────────── -#}
+<section>
+  <h2 id="contents">Contents</h2>
+  <ul class="toc">
+    <li><a href="#summary">Executive summary</a></li>
+    <li><a href="#revenue">Revenue trend</a></li>
+    <li><a href="#regions">Regional performance</a></li>
+    <li><a href="#products">Product mix</a></li>
+    <li><a href="#receivables">Appendix · Receivables</a></li>
+  </ul>
+
+  <h2 id="summary">Executive summary</h2>
+  <div class="kpis">
+    {% for kpi in kpis %}
+    <div class="kpi">
+      <div class="label">{{ kpi.label }}</div>
+      <div class="value">{{ kpi_value(kpi) }}</div>
+      {{ delta(kpi.change_pct, kpi.lower_is_better | default(false), " pts" if kpi.format == "percent" else "%") }}
+      <span class="muted" style="font-size:7.5pt">vs last quarter</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if highlights is defined and highlights %}
+  <h3>Highlights</h3>
+  <ul class="highlights">
+    {% for item in highlights %}<li>{{ item }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+
+  {% set quarter = monthly[-3:] %}
+  {% set quarter_total = quarter | sum(attribute="revenue") %}
+  {% set target_total = report.monthly_target * (quarter | length) %}
+  <div class="callout">
+    Quarter revenue of <strong>{{ money(quarter_total) }}</strong> is
+    <strong>{{ "{:.1f}".format(((quarter_total / target_total - 1) * 100) | abs) }}%
+    {{ "above" if quarter_total >= target_total else "below" }}</strong>
+    the {{ money(target_total) }} target
+    ({{ quarter | selectattr("revenue", "ge", report.monthly_target) | list | length }} of {{ quarter | length }} months on target).
+  </div>
+</section>
+
+{#- ── Revenue trend: SVG bar chart drawn from the data ─────────────────── -#}
+<section class="section">
+  <h2 id="revenue">Revenue trend</h2>
+  <p>Monthly recognised revenue for the trailing twelve months. The current quarter is highlighted.</p>
+  {% set peak = monthly | map(attribute="revenue") | max %}
+  {% set scale_max = ([peak, report.monthly_target] | max) * 1.15 %}
+  {% set plot_left, plot_right, plot_top, plot_bottom = 64, 628, 18, 206 %}
+  {% set slot = (plot_right - plot_left) / (monthly | length) %}
+  {% set bar_width = slot * 0.62 %}
+  {% set plot_height = plot_bottom - plot_top %}
+  <svg class="chart" viewBox="0 0 640 236" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica, Arial, sans-serif">
+    {% for step in range(5) %}
+      {% set y = plot_bottom - plot_height * step / 4 %}
+      <line x1="{{ plot_left }}" x2="{{ plot_right }}" y1="{{ y }}" y2="{{ y }}" stroke="#dde3ea" stroke-width="1"/>
+      <text x="{{ plot_left - 8 }}" y="{{ y + 3 }}" font-size="9" fill="#6b7a90" text-anchor="end">{{ report.currency }}{{ "{:,.0f}k".format(scale_max * step / 4 / 1000) }}</text>
+    {% endfor %}
+    {#- Target line first, so bars paint over it and their labels stay readable. -#}
+    {% set target_y = plot_bottom - report.monthly_target / scale_max * plot_height %}
+    <line x1="{{ plot_left }}" x2="{{ plot_right }}" y1="{{ target_y }}" y2="{{ target_y }}" stroke="#c0392b" stroke-width="1.2" stroke-dasharray="5 4"/>
+    <text x="{{ plot_left + 4 }}" y="{{ target_y - 5 }}" font-size="8.5" fill="#c0392b">Monthly target {{ money(report.monthly_target) }}</text>
+    {% for month in monthly %}
+      {% set height = month.revenue / scale_max * plot_height %}
+      {% set x = plot_left + loop.index0 * slot + (slot - bar_width) / 2 %}
+      {% set current = loop.revindex <= 3 %}
+      <rect x="{{ '%.1f' | format(x) }}" y="{{ '%.1f' | format(plot_bottom - height) }}" width="{{ '%.1f' | format(bar_width) }}"
+            height="{{ '%.1f' | format(height) }}" rx="2" fill="{{ '#2a9d8f' if current else '#c3d0de' }}"/>
+      <text x="{{ '%.1f' | format(x + bar_width / 2) }}" y="{{ '%.1f' | format(plot_bottom - height + 12) }}" font-size="8"
+            font-weight="bold" fill="{{ '#ffffff' if current else '#0f2a44' }}" text-anchor="middle">{{ "{:.0f}k".format(month.revenue / 1000) }}</text>
+      <text x="{{ '%.1f' | format(x + bar_width / 2) }}" y="{{ plot_bottom + 14 }}" font-size="9" fill="#1f2d3d" text-anchor="middle">{{ month.month }}</text>
+    {% endfor %}
+  </svg>
+  <div class="legend"><i style="background:#2a9d8f"></i>Current quarter <i style="background:#c3d0de"></i>Prior months
+    <i style="background:none;border-top:1.5px dashed #c0392b;height:0"></i>Target</div>
+
+  <table class="data">
+    <thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">vs target</th><th class="num">Month over month</th></tr></thead>
+    <tbody>
+    {% for month in monthly[-6:] %}
+      {% set previous = monthly[monthly | length - 6 + loop.index0 - 1] %}
+      <tr>
+        <td>{{ month.month }}</td>
+        <td class="num">{{ money(month.revenue) }}</td>
+        <td class="num">{{ delta((month.revenue / report.monthly_target - 1) * 100) }}</td>
+        <td class="num">{{ delta((month.revenue / previous.revenue - 1) * 100) }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+{#- ── Regions: sorted, with share bars and colour-coded growth ─────────── -#}
+<section class="section">
+  <h2 id="regions">Regional performance</h2>
+  {% set region_total = regions | sum(attribute="revenue") %}
+  {% set leader = regions | sort(attribute="revenue", reverse=true) | first %}
+  <p>{{ leader.name }} remains the largest region at {{ "{:.0f}".format(leader.revenue / region_total * 100) }}% of revenue.
+     {% set shrinking = regions | selectattr("growth_pct", "lt", 0) | map(attribute="name") | list %}
+     {% if shrinking %}Declining year over year: {{ shrinking | join(", ") }}.{% else %}Every region grew year over year.{% endif %}</p>
+  <table class="data">
+    <thead><tr><th>Region</th><th class="num">Revenue</th><th>Share</th><th class="num">YoY growth</th><th class="num">Customers</th><th class="num">Rev / customer</th></tr></thead>
+    <tbody>
+    {% for region in regions | sort(attribute="revenue", reverse=true) %}
+      {% set share = region.revenue / region_total * 100 %}
+      <tr>
+        <td>{{ region.name }}</td>
+        <td class="num">{{ money(region.revenue) }}</td>
+        <td class="share"><span class="bar"><span style="width: {{ '%.1f' | format(share) }}%"></span></span><span class="muted">{{ "{:.0f}".format(share) }}%</span></td>
+        <td class="num">{{ delta(region.growth_pct) }}</td>
+        <td class="num">{{ "{:,}".format(region.customers) }}</td>
+        <td class="num">{{ money(region.revenue / region.customers) }}</td>
+      </tr>
+    {% endfor %}
+      <tr class="total">
+        <td>Total</td><td class="num">{{ money(region_total) }}</td><td>100%</td><td></td>
+        <td class="num">{{ "{:,}".format(regions | sum(attribute="customers")) }}</td>
+        <td class="num">{{ money(region_total / (regions | sum(attribute="customers"))) }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  {#- Product mix on the same page when it fits. -#}
+  <h2 id="products" style="margin-top:8mm">Product mix</h2>
+  {% set product_total = products | sum(attribute="revenue") %}
+  <table class="data">
+    <thead><tr><th>Product</th><th class="num">Units</th><th class="num">Revenue</th><th>Share of revenue</th></tr></thead>
+    <tbody>
+    {% for category, items in products | groupby("category") %}
+      <tr class="group"><td colspan="4">{{ category }}</td></tr>
+      {% for product in items | sort(attribute="revenue", reverse=true) %}
+      {% set share = product.revenue / product_total * 100 %}
+      <tr>
+        <td>{{ product.name }}</td>
+        <td class="num">{{ "{:,}".format(product.units) }}</td>
+        <td class="num">{{ money(product.revenue) }}</td>
+        <td class="share"><span class="bar"><span style="width: {{ '%.1f' | format(share) }}%"></span></span><span class="muted">{{ "{:.1f}".format(share) }}%</span></td>
+      </tr>
+      {% endfor %}
+      <tr class="subtotal"><td>{{ category }} subtotal</td><td class="num">{{ "{:,}".format(items | sum(attribute="units")) }}</td>
+        <td class="num">{{ money(items | sum(attribute="revenue")) }}</td><td></td></tr>
+    {% endfor %}
+      <tr class="total"><td>Total</td><td class="num">{{ "{:,}".format(products | sum(attribute="units")) }}</td><td class="num">{{ money(product_total) }}</td><td></td></tr>
+    </tbody>
+  </table>
+</section>
+
+{#- ── Appendix: long table that flows across pages (header repeats) ────── -#}
+<section class="section">
+  <h2 id="receivables">Appendix · Receivables</h2>
+  <div class="receivables">
+    {% for status in ["paid", "pending", "overdue"] %}
+      {% set rows = transactions | selectattr("status", "equalto", status) | list %}
+      <div>{{ status_badge(status) }}<strong>{{ money(rows | sum(attribute="amount")) }}</strong>
+        <span class="muted">{{ rows | length }} invoice{{ "" if rows | length == 1 else "s" }}</span></div>
+    {% endfor %}
+  </div>
+  <table class="data">
+    <thead><tr><th>Date</th><th>Invoice</th><th>Customer</th><th>Region</th><th class="num">Amount</th><th>Status</th></tr></thead>
+    <tbody>
+    {% for row in transactions %}
+      <tr>
+        <td>{{ row.date }}</td>
+        <td>{{ row.invoice }}</td>
+        <td>{{ row.customer }}</td>
+        <td class="muted">{{ row.region }}</td>
+        <td class="num">{{ money(row.amount, cents=true) }}</td>
+        <td>{{ status_badge(row.status) }}</td>
+      </tr>
+    {% endfor %}
+      <tr class="total"><td colspan="4">{{ transactions | length }} invoices</td>
+        <td class="num">{{ money(transactions | sum(attribute="amount"), cents=true) }}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  <div class="signoff">
+    <div class="line">{{ report.prepared_by.name }}</div>
+    <div class="muted">{{ report.prepared_by.title }}, {{ company.name }}</div>
+  </div>
+
+  {% if notes is defined %}<div class="notes"><strong>Notes.</strong> {{ notes }}</div>{% endif %}
+</section>
+
+</body>
+</html>

@@ -1,0 +1,647 @@
+{
+  "company": {
+    "name": "Northstar Analytics",
+    "tagline": "Insight you can act on",
+    "address": "400 Harbor Way, Suite 1200 · Seattle, WA 98101"
+  },
+  "report": {
+    "title": "Quarterly Business Review",
+    "period": "Q3 FY2026",
+    "period_range": "July 1 – September 30, 2026",
+    "prepared_for": "Board of Directors",
+    "prepared_by": {
+      "name": "Dana Whitfield",
+      "title": "Chief Financial Officer"
+    },
+    "date": "October 6, 2026",
+    "currency": "$",
+    "monthly_target": 750000,
+    "confidential": true
+  },
+  "kpis": [
+    {
+      "label": "Revenue",
+      "value": 2440100,
+      "format": "money",
+      "change_pct": 12.4
+    },
+    {
+      "label": "Gross margin",
+      "value": 64.2,
+      "format": "percent",
+      "change_pct": 1.8
+    },
+    {
+      "label": "New customers",
+      "value": 138,
+      "format": "number",
+      "change_pct": 21.1
+    },
+    {
+      "label": "Churn rate",
+      "value": 2.9,
+      "format": "percent",
+      "change_pct": -0.6,
+      "lower_is_better": true
+    }
+  ],
+  "highlights": [
+    "Revenue beat the quarterly plan by 6.8%, driven by enterprise renewals in North America and Europe.",
+    "Asia Pacific grew 31% year over year after the Singapore office opened in July.",
+    "Gross margin improved for the third consecutive quarter as hosting costs fell 9%.",
+    "Two overdue invoices over $40k are in collections; see the appendix for details."
+  ],
+  "monthly": [
+    {
+      "month": "Oct",
+      "revenue": 612000
+    },
+    {
+      "month": "Nov",
+      "revenue": 648500
+    },
+    {
+      "month": "Dec",
+      "revenue": 702300
+    },
+    {
+      "month": "Jan",
+      "revenue": 588900
+    },
+    {
+      "month": "Feb",
+      "revenue": 604200
+    },
+    {
+      "month": "Mar",
+      "revenue": 671800
+    },
+    {
+      "month": "Apr",
+      "revenue": 695400
+    },
+    {
+      "month": "May",
+      "revenue": 728100
+    },
+    {
+      "month": "Jun",
+      "revenue": 754900
+    },
+    {
+      "month": "Jul",
+      "revenue": 781200
+    },
+    {
+      "month": "Aug",
+      "revenue": 812600
+    },
+    {
+      "month": "Sep",
+      "revenue": 846300
+    }
+  ],
+  "regions": [
+    {
+      "name": "North America",
+      "revenue": 1052400,
+      "growth_pct": 9.8,
+      "customers": 412
+    },
+    {
+      "name": "Europe",
+      "revenue": 684300,
+      "growth_pct": 14.2,
+      "customers": 287
+    },
+    {
+      "name": "Asia Pacific",
+      "revenue": 398700,
+      "growth_pct": 31.0,
+      "customers": 164
+    },
+    {
+      "name": "Latin America",
+      "revenue": 187900,
+      "growth_pct": -3.4,
+      "customers": 96
+    },
+    {
+      "name": "Middle East & Africa",
+      "revenue": 116800,
+      "growth_pct": 5.1,
+      "customers": 58
+    }
+  ],
+  "products": [
+    {
+      "name": "Insight Cloud — Enterprise",
+      "category": "Subscriptions",
+      "units": 184,
+      "revenue": 918400
+    },
+    {
+      "name": "Insight Cloud — Team",
+      "category": "Subscriptions",
+      "units": 1260,
+      "revenue": 504000
+    },
+    {
+      "name": "Data Connectors Pack",
+      "category": "Add-ons",
+      "units": 842,
+      "revenue": 252600
+    },
+    {
+      "name": "Forecasting Module",
+      "category": "Add-ons",
+      "units": 391,
+      "revenue": 234600
+    },
+    {
+      "name": "Implementation Services",
+      "category": "Services",
+      "units": 58,
+      "revenue": 290000
+    },
+    {
+      "name": "Premium Support",
+      "category": "Services",
+      "units": 212,
+      "revenue": 148400
+    },
+    {
+      "name": "Training Workshops",
+      "category": "Services",
+      "units": 64,
+      "revenue": 92100
+    }
+  ],
+  "transactions": [
+    {
+      "date": "2026-07-01",
+      "invoice": "INV-26005",
+      "customer": "Ironclad Manufacturing",
+      "region": "North America",
+      "amount": 36059.63,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-01",
+      "invoice": "INV-26031",
+      "customer": "Maple Street Bank",
+      "region": "Latin America",
+      "amount": 29024.07,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-01",
+      "invoice": "INV-26056",
+      "customer": "Riverbend Hotels",
+      "region": "North America",
+      "amount": 27304.28,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-07-01",
+      "invoice": "INV-26085",
+      "customer": "Nimbus Software",
+      "region": "North America",
+      "amount": 29941.85,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-01",
+      "invoice": "INV-26113",
+      "customer": "Pinnacle Insurance",
+      "region": "Europe",
+      "amount": 32081.27,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-08",
+      "invoice": "INV-26008",
+      "customer": "Juniper Retail Group",
+      "region": "North America",
+      "amount": 33063.52,
+      "status": "pending"
+    },
+    {
+      "date": "2026-07-08",
+      "invoice": "INV-26036",
+      "customer": "Summit Outdoor",
+      "region": "Asia Pacific",
+      "amount": 14637.66,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-08",
+      "invoice": "INV-26065",
+      "customer": "Lumen Energy",
+      "region": "North America",
+      "amount": 3917.09,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-08",
+      "invoice": "INV-26095",
+      "customer": "Maple Street Bank",
+      "region": "Europe",
+      "amount": 23156.42,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-08",
+      "invoice": "INV-26124",
+      "customer": "Tidewater Shipping",
+      "region": "Europe",
+      "amount": 14037.46,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-15",
+      "invoice": "INV-26014",
+      "customer": "Summit Outdoor",
+      "region": "North America",
+      "amount": 3176.63,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-15",
+      "invoice": "INV-26044",
+      "customer": "Ironclad Manufacturing",
+      "region": "North America",
+      "amount": 19352.64,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-15",
+      "invoice": "INV-26072",
+      "customer": "Harborview Health",
+      "region": "Europe",
+      "amount": 41831.55,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-15",
+      "invoice": "INV-26103",
+      "customer": "Maple Street Bank",
+      "region": "Asia Pacific",
+      "amount": 40739.76,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-15",
+      "invoice": "INV-26131",
+      "customer": "Nimbus Software",
+      "region": "Middle East & Africa",
+      "amount": 21593.64,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-07-22",
+      "invoice": "INV-26022",
+      "customer": "Bluefin Logistics",
+      "region": "Middle East & Africa",
+      "amount": 10986.3,
+      "status": "pending"
+    },
+    {
+      "date": "2026-07-22",
+      "invoice": "INV-26051",
+      "customer": "Nimbus Software",
+      "region": "North America",
+      "amount": 35513.61,
+      "status": "pending"
+    },
+    {
+      "date": "2026-07-22",
+      "invoice": "INV-26079",
+      "customer": "Tidewater Shipping",
+      "region": "Asia Pacific",
+      "amount": 9314.62,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-22",
+      "invoice": "INV-26106",
+      "customer": "Cedar & Pine Co.",
+      "region": "Asia Pacific",
+      "amount": 20333.81,
+      "status": "paid"
+    },
+    {
+      "date": "2026-07-22",
+      "invoice": "INV-26136",
+      "customer": "Quarry Stone Works",
+      "region": "Europe",
+      "amount": 47876.45,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-01",
+      "invoice": "INV-26144",
+      "customer": "Upland Farms",
+      "region": "North America",
+      "amount": 36717.14,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-01",
+      "invoice": "INV-26168",
+      "customer": "Orchard Foods",
+      "region": "Latin America",
+      "amount": 9106.89,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-01",
+      "invoice": "INV-26196",
+      "customer": "Pinnacle Insurance",
+      "region": "Latin America",
+      "amount": 2699.83,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-01",
+      "invoice": "INV-26226",
+      "customer": "Summit Outdoor",
+      "region": "Europe",
+      "amount": 44715.8,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-01",
+      "invoice": "INV-26253",
+      "customer": "Bluefin Logistics",
+      "region": "North America",
+      "amount": 34502.25,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-08",
+      "invoice": "INV-26148",
+      "customer": "Kestrel Aerospace",
+      "region": "Latin America",
+      "amount": 29354.1,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-08",
+      "invoice": "INV-26180",
+      "customer": "Nimbus Software",
+      "region": "Middle East & Africa",
+      "amount": 37002.65,
+      "status": "pending"
+    },
+    {
+      "date": "2026-08-08",
+      "invoice": "INV-26205",
+      "customer": "Maple Street Bank",
+      "region": "North America",
+      "amount": 12928.27,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-08-08",
+      "invoice": "INV-26236",
+      "customer": "Orchard Foods",
+      "region": "Latin America",
+      "amount": 47775.9,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-08",
+      "invoice": "INV-26260",
+      "customer": "Harborview Health",
+      "region": "North America",
+      "amount": 41515.16,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-15",
+      "invoice": "INV-26157",
+      "customer": "Tidewater Shipping",
+      "region": "Middle East & Africa",
+      "amount": 13415.33,
+      "status": "pending"
+    },
+    {
+      "date": "2026-08-15",
+      "invoice": "INV-26182",
+      "customer": "Orchard Foods",
+      "region": "Middle East & Africa",
+      "amount": 29934.42,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-15",
+      "invoice": "INV-26210",
+      "customer": "Harborview Health",
+      "region": "Latin America",
+      "amount": 39500.27,
+      "status": "pending"
+    },
+    {
+      "date": "2026-08-15",
+      "invoice": "INV-26241",
+      "customer": "Tidewater Shipping",
+      "region": "North America",
+      "amount": 13253.24,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-15",
+      "invoice": "INV-26270",
+      "customer": "Maple Street Bank",
+      "region": "Asia Pacific",
+      "amount": 32706.77,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-22",
+      "invoice": "INV-26161",
+      "customer": "Ironclad Manufacturing",
+      "region": "Middle East & Africa",
+      "amount": 36490.55,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-22",
+      "invoice": "INV-26191",
+      "customer": "Kestrel Aerospace",
+      "region": "Middle East & Africa",
+      "amount": 45851.69,
+      "status": "pending"
+    },
+    {
+      "date": "2026-08-22",
+      "invoice": "INV-26218",
+      "customer": "Juniper Retail Group",
+      "region": "Latin America",
+      "amount": 45544.41,
+      "status": "paid"
+    },
+    {
+      "date": "2026-08-22",
+      "invoice": "INV-26247",
+      "customer": "Bluefin Logistics",
+      "region": "Middle East & Africa",
+      "amount": 27391.17,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-09-01",
+      "invoice": "INV-26283",
+      "customer": "Summit Outdoor",
+      "region": "Europe",
+      "amount": 6157.85,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-01",
+      "invoice": "INV-26309",
+      "customer": "Summit Outdoor",
+      "region": "Europe",
+      "amount": 14668.79,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-01",
+      "invoice": "INV-26339",
+      "customer": "Bluefin Logistics",
+      "region": "Latin America",
+      "amount": 14052.38,
+      "status": "pending"
+    },
+    {
+      "date": "2026-09-01",
+      "invoice": "INV-26367",
+      "customer": "Kestrel Aerospace",
+      "region": "North America",
+      "amount": 46187.99,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-01",
+      "invoice": "INV-26396",
+      "customer": "Pinnacle Insurance",
+      "region": "Asia Pacific",
+      "amount": 11236.78,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-08",
+      "invoice": "INV-26289",
+      "customer": "Summit Outdoor",
+      "region": "Latin America",
+      "amount": 23376.54,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-08",
+      "invoice": "INV-26315",
+      "customer": "Tidewater Shipping",
+      "region": "Middle East & Africa",
+      "amount": 6323.38,
+      "status": "pending"
+    },
+    {
+      "date": "2026-09-08",
+      "invoice": "INV-26345",
+      "customer": "Summit Outdoor",
+      "region": "Middle East & Africa",
+      "amount": 32378.45,
+      "status": "pending"
+    },
+    {
+      "date": "2026-09-08",
+      "invoice": "INV-26372",
+      "customer": "Harborview Health",
+      "region": "Middle East & Africa",
+      "amount": 4939.79,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-08",
+      "invoice": "INV-26400",
+      "customer": "Nimbus Software",
+      "region": "Latin America",
+      "amount": 7846.58,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-15",
+      "invoice": "INV-26299",
+      "customer": "Ironclad Manufacturing",
+      "region": "North America",
+      "amount": 20401.1,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-15",
+      "invoice": "INV-26322",
+      "customer": "Harborview Health",
+      "region": "Europe",
+      "amount": 9483.57,
+      "status": "pending"
+    },
+    {
+      "date": "2026-09-15",
+      "invoice": "INV-26351",
+      "customer": "Lumen Energy",
+      "region": "Asia Pacific",
+      "amount": 11857.78,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-15",
+      "invoice": "INV-26381",
+      "customer": "Ironclad Manufacturing",
+      "region": "Middle East & Africa",
+      "amount": 13175.15,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-09-22",
+      "invoice": "INV-26277",
+      "customer": "Juniper Retail Group",
+      "region": "Middle East & Africa",
+      "amount": 28420.98,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-22",
+      "invoice": "INV-26301",
+      "customer": "Maple Street Bank",
+      "region": "Europe",
+      "amount": 10587.65,
+      "status": "pending"
+    },
+    {
+      "date": "2026-09-22",
+      "invoice": "INV-26332",
+      "customer": "Lumen Energy",
+      "region": "Latin America",
+      "amount": 43492.86,
+      "status": "paid"
+    },
+    {
+      "date": "2026-09-22",
+      "invoice": "INV-26361",
+      "customer": "Cedar & Pine Co.",
+      "region": "Asia Pacific",
+      "amount": 4441.04,
+      "status": "overdue"
+    },
+    {
+      "date": "2026-09-22",
+      "invoice": "INV-26385",
+      "customer": "Harborview Health",
+      "region": "Latin America",
+      "amount": 32170.64,
+      "status": "overdue"
+    }
+  ],
+  "notes": "Figures are unaudited. Revenue is recognised on a monthly basis; Q3 FY2025 comparatives are restated for the April 2026 pricing change."
+}
