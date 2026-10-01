@@ -47,8 +47,18 @@ def test_reload_and_workers_are_exclusive():
 		{"mode": "jwt", "audience": "x", "jwks_uri": "https://idp/jwks", "public_key": "k"},
 		{"mode": "jwt", "jwks_uri": "https://idp/jwks"},
 		{"mode": "jwt", "audience": "x", "jwks_uri": "https://idp/jwks", "authorization_servers": ["https://idp"]},
+		{"mode": "oauth", "client_id": "x", "base_url": "https://mcp.example.com"},
+		{"mode": "oauth", "client_id": "x", "client_secret": "y"},
+		{"mode": "oauth", "provider": "oidc", "client_id": "x", "client_secret": "y", "base_url": "https://mcp"},
+		{"mode": "static", "tokens": ["k"], "allowed_users": ["octocat"]},
 	],
 )
 def test_invalid_mcp_auth(auth):
 	with pytest.raises(ValidationError):
 		McpAuthSettings(**auth)
+
+
+def test_memory_oauth_storage_needs_a_single_worker():
+	auth = {"mode": "oauth", "client_id": "x", "client_secret": "y", "base_url": "https://mcp", "storage": "memory"}
+	with pytest.raises(ValidationError, match="storage=memory"):
+		Settings(mcp={"auth": auth}, server=ServerSettings(workers=2))

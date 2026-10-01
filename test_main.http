@@ -70,6 +70,12 @@ Content-Type: text/html
 
 ###
 
+# List templates, newest first. Page with ?limit= (1-200, default 50) and ?offset=.
+GET http://127.0.0.1:8000/templates
+Accept: application/json
+
+###
+
 @template_id = paste-template-id-here
 
 # Render a PDF. template_data holds the template's variables; correlation_id (optional) is your own

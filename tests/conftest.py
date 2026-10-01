@@ -1,3 +1,4 @@
+import os
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -6,12 +7,16 @@ from fastapi.testclient import TestClient
 from fastmcp.server.auth import AuthProvider
 from fastmcp.server.middleware import Middleware
 from pydantic_settings import SettingsConfigDict
+from pymongo import MongoClient
+from pymongo.errors import PyMongoError
 
 from app.core.auth import auth_from_settings
 from app.core.settings import Environment, Settings
 from app.routes import HealthRoutes, HelloRoutes, RouteSource
 from app.server import ServerBuilder
 from app.tools import GreetingTools, ToolsetSource
+
+MONGO_URL = os.environ.get("APP_TEST_MONGO_URL", "mongodb://localhost:27017")
 
 MCP_HEADERS = {
 	"Content-Type": "application/json",
@@ -71,3 +76,16 @@ def make_client() -> Iterator[Callable[..., TestClient]]:
 @pytest.fixture
 def client(make_client) -> TestClient:
 	return make_client()
+
+
+@pytest.fixture(scope="session")
+def mongo_url() -> str:
+	"""A real MongoDB (APP_TEST_MONGO_URL, default localhost); tests using it skip when it's not running."""
+	client: MongoClient = MongoClient(MONGO_URL, serverSelectionTimeoutMS=1000)
+	try:
+		client.admin.command("ping")
+	except PyMongoError:
+		pytest.skip(f"MongoDB not reachable at {MONGO_URL}; start one with `docker compose up -d mongo`")
+	finally:
+		client.close()
+	return MONGO_URL

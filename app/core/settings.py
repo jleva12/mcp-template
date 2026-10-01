@@ -91,9 +91,12 @@ class McpAuthSettings(BaseModel):
 	- none:   no auth (development, or when a gateway in front handles it)
 	- static: fixed API keys, for service-to-service callers you control
 	- jwt:    verify JWTs from an identity provider via JWKS URI or public key
+	- oauth:  people sign in with GitHub, Google or any OIDC provider from MCP clients
+	          like Claude, Cursor or VS Code; this server runs the OAuth flow
 	"""
 
-	mode: Literal["none", "static", "jwt"] = "none"
+	mode: Literal["none", "static", "jwt", "oauth"] = "none"
+	# For oauth, also the scopes requested at sign-in. Empty = the provider's default.
 	required_scopes: list[str] = []
 
 	# static
@@ -113,6 +116,24 @@ class McpAuthSettings(BaseModel):
 	# Public URL of this server as clients reach it, e.g. https://mcp.example.com
 	base_url: str | None = None
 
+	# oauth: register an OAuth app with the provider, with callback URL <base_url>/auth/callback.
+	# Also needs base_url. For oidc, audience (above) is forwarded to IdPs that need one, e.g. Auth0.
+	provider: Literal["github", "google", "oidc"] = "github"
+	client_id: str | None = None
+	client_secret: SecretStr | None = None
+	# oidc: the IdP's discovery document, e.g. https://tenant.auth0.com/.well-known/openid-configuration
+	config_url: str | None = None
+	# Signs the tokens this server issues to MCP clients and encrypts stored upstream tokens.
+	# Same on every replica; changing it signs everyone out. Unset = derived from client_secret.
+	jwt_signing_key: SecretStr | None = None
+	# Client registrations and upstream tokens: mongo (survives restarts, shared by replicas),
+	# or memory (development/tests only; lost on restart and not shared between workers).
+	storage: Literal["mongo", "memory"] = "mongo"
+	# Who may sign in: GitHub usernames or verified emails, and verified email domains.
+	# Both empty = anyone with an account at the provider.
+	allowed_users: list[str] = []
+	allowed_domains: list[str] = []
+
 	@model_validator(mode="after")
 	def _check_mode(self) -> Self:
 		if self.mode == "static" and not self.tokens:
@@ -124,6 +145,15 @@ class McpAuthSettings(BaseModel):
 				raise ValueError("mcp.auth.mode=jwt requires an audience")
 			if self.authorization_servers and not self.base_url:
 				raise ValueError("mcp.auth.authorization_servers requires base_url")
+		if self.mode == "oauth":
+			if not (self.client_id and self.client_secret):
+				raise ValueError("mcp.auth.mode=oauth requires client_id and client_secret")
+			if not self.base_url:
+				raise ValueError("mcp.auth.mode=oauth requires base_url, this server's public URL")
+			if self.provider == "oidc" and not self.config_url:
+				raise ValueError("mcp.auth.provider=oidc requires config_url")
+		elif self.allowed_users or self.allowed_domains:
+			raise ValueError("mcp.auth.allowed_users and allowed_domains require mode=oauth")
 		return self
 
 
@@ -267,6 +297,10 @@ class Settings(BaseSettings):
 				raise ValueError("cors: wildcard origins cannot be combined with credentials")
 		if self.server.reload and self.server.workers > 1:
 			raise ValueError("server.reload and server.workers > 1 are mutually exclusive")
+		auth = self.mcp.auth
+		if auth.mode == "oauth" and auth.storage == "memory" and self.server.workers > 1:
+			# A sign-in started on one worker can finish on another, which wouldn't know about it.
+			raise ValueError("mcp.auth.storage=memory can't be shared by server.workers > 1; use mongo")
 		return self
 
 

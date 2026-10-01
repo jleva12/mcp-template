@@ -8,7 +8,7 @@ from app.routes import DocumentRoutes, FileRoutes, HealthRoutes, HelloRoutes, Te
 from app.server import ServerBuilder
 from app.services.rendering import DocxRenderer, PdfRenderer, RendererRegistry
 from app.services.templates import TemplateService
-from app.tools import FileTools, GreetingTools, IdentityTools, TemplateTools
+from app.tools import FileTools, GreetingTools, IdentityTools, TemplateStudioTools, TemplateTools
 
 settings = get_settings()
 configure_logging(settings)
@@ -21,9 +21,9 @@ templates = TemplateService(settings, renderers, files)
 
 server = (
 	ServerBuilder(settings)
-	# API keys or JWTs per APP_MCP__AUTH__MODE. Swap in any FastMCP provider (e.g. GitHubProvider,
-	# OIDCProxy for OAuth), or pass several to accept any of them. Also protects API route
-	# classes with requires_auth = True.
+	# API keys, JWTs or OAuth sign-in per APP_MCP__AUTH__MODE. Swap in any other FastMCP provider
+	# (e.g. AzureProvider), or pass several to accept any of them, e.g. OAuth for people plus
+	# ApiKeyVerifier for services. Also protects API route classes with requires_auth = True.
 	.with_auth(auth_from_settings(settings))
 	.with_lifespan(database.lifespan)
 	.with_routes(
@@ -33,7 +33,14 @@ server = (
 		TemplateRoutes(settings, templates),
 		DocumentRoutes(settings, templates),
 	)
-	.with_toolsets(GreetingTools, IdentityTools, FileTools(settings, files), TemplateTools(settings, templates))
+	.with_toolsets(
+		GreetingTools,
+		IdentityTools,
+		FileTools(settings, files),
+		TemplateTools(settings, templates),
+		# An MCP App: opens an interactive template preview in clients that support MCP Apps.
+		TemplateStudioTools(settings, templates),
+	)
 )  # fmt: skip
 app = server.build()
 

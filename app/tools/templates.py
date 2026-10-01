@@ -56,7 +56,7 @@ class TemplateTools(Toolset):
 		guard optional ones with {% if x is defined %} or {{ x | default('') }}.
 		`json_schema` optionally describes the data render_document must receive.
 		"""
-		with _tool_errors():
+		with tool_errors():
 			return await self.service.create_template(name, content, json_schema, description)
 
 	@mcp_tool()
@@ -69,19 +69,19 @@ class TemplateTools(Toolset):
 		Earlier versions stay available. Pass the full HTML (see create_template for the rules)
 		and the JSON Schema again if the new version should have one.
 		"""
-		with _tool_errors():
+		with tool_errors():
 			return await self.service.add_version(template_id, content, json_schema)
 
 	@mcp_tool(annotations=_READ_ONLY)
 	async def get_template(self, template_id: str) -> TemplateInfo:
 		"""Get a template's name, versions, and the JSON Schema render data must match."""
-		with _tool_errors():
+		with tool_errors():
 			return await self.service.get_template(template_id)
 
 	@mcp_tool(annotations=_READ_ONLY)
 	async def get_template_version(self, template_id: str, version: int | None = None) -> TemplateVersionDetail:
 		"""Get the HTML source and JSON Schema of a template version (the latest if omitted)."""
-		with _tool_errors():
+		with tool_errors():
 			return await self.service.get_version(template_id, version)
 
 	@mcp_tool(output_schema=DocumentInfo.model_json_schema())
@@ -101,14 +101,14 @@ class TemplateTools(Toolset):
 		`version` is given. `correlation_id` is an optional ID of your own (e.g. an order number)
 		that is returned with the document for tracking.
 		"""
-		with _tool_errors():
+		with tool_errors():
 			document = await self.service.render(template_id, template_data, version, correlation_id, output_format)
 		return self._document_result(document)
 
 	@mcp_tool(annotations=_READ_ONLY, output_schema=DocumentInfo.model_json_schema())
 	async def get_document(self, document_id: str) -> ToolResult:
 		"""Get a rendered document's details and a fresh download link."""
-		with _tool_errors():
+		with tool_errors():
 			document = await self.service.get_document(document_id)
 		return self._document_result(document)
 
@@ -121,7 +121,7 @@ class TemplateTools(Toolset):
 
 
 @contextmanager
-def _tool_errors() -> Iterator[None]:
+def tool_errors() -> Iterator[None]:
 	try:
 		yield
 	except InvalidDataError as exc:

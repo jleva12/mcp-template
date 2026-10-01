@@ -21,7 +21,7 @@ from jinja2 import StrictUndefined, TemplateSyntaxError, UndefinedError
 from jinja2.exceptions import SecurityError
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 
-from app.core.settings import Settings
+from app.core.settings import Settings, TemplateSettings
 from app.services.errors import InvalidDataError, InvalidTemplateError, RenderError
 from app.services.rendering.base import RenderedFile, Renderer
 
@@ -85,6 +85,29 @@ class HtmlRenderer(Renderer):
 		:rtype: tuple[bytes, int | None]
 		:raises RenderError: If the conversion fails.
 		"""
+
+
+async def fill_html(content: str, data: dict[str, Any], config: TemplateSettings) -> str:
+	"""
+	Fills a template with data and returns the HTML, without converting it, e.g. for a live preview.
+
+	:param content: Jinja HTML source.
+	:type content: str
+	:param data: Template variables.
+	:type data: dict[str, Any]
+	:param config: ``render_timeout_seconds`` limits the fill.
+	:type config: TemplateSettings
+	:return: The filled-in HTML.
+	:rtype: str
+	:raises InvalidDataError: If ``data`` lacks a value the template uses.
+	:raises RenderError: If the template fails or times out.
+	"""
+	timeout = config.render_timeout_seconds
+	try:
+		with anyio.fail_after(timeout):
+			return await anyio.to_thread.run_sync(_fill, content, data, abandon_on_cancel=True)
+	except TimeoutError:
+		raise RenderError(f"Rendering took longer than {timeout:g} seconds") from None
 
 
 def _fill(content: str, data: dict[str, Any]) -> str:

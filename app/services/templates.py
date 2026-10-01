@@ -1,6 +1,8 @@
 """Templates, their versions, and the documents (PDF, DOCX, ...) rendered from them.
 
 Anyone holding a template or document ID can use it; IDs are unguessable (see app.models).
+Templates can also be listed, so any caller the API's auth lets in can find every template;
+documents can't be listed.
 Templates are versioned: uploading changed content adds a new version, and rendering uses
 the latest one unless a version is given. Each rendered document records the version used.
 """
@@ -25,7 +27,7 @@ from app.core.logging import get_logger
 from app.core.settings import Settings
 from app.models import DocumentFile, OutputFormat, RenderedDocument, Template, TemplateVersion
 from app.services.errors import InvalidDataError, InvalidTemplateError, NotFoundError, RenderError
-from app.services.rendering import RendererRegistry
+from app.services.rendering import RendererRegistry, fill_html
 
 log = get_logger("app.templates")
 
@@ -52,22 +54,38 @@ class TemplateVersionInfo(BaseModel):
 	created_at: datetime
 
 
-class TemplateInfo(BaseModel):
+class TemplateSummary(BaseModel):
 	template_id: str
 	name: str
 	description: str | None
 	latest_version: int
+	created_at: datetime
+	updated_at: datetime
+
+
+class TemplateList(BaseModel):
+	templates: list[TemplateSummary]
+	# All templates, not just this page.
+	total: int
+
+
+class TemplateInfo(TemplateSummary):
 	# JSON Schema of the latest version: the shape `data` must have when rendering.
 	json_schema: dict[str, Any] | None
 	versions: list[TemplateVersionInfo]
-	created_at: datetime
-	updated_at: datetime
 
 
 class TemplateVersionDetail(TemplateVersionInfo):
 	template_id: str
 	content: str
 	json_schema: dict[str, Any] | None
+
+
+class TemplatePreview(BaseModel):
+	template_id: str
+	template_version: int
+	# The filled-in HTML, before conversion: PDF page rules such as @page don't apply to it.
+	html: str
 
 
 class DocumentInfo(BaseModel):
@@ -182,6 +200,33 @@ class TemplateService:
 			updated_at=template.updated_at,
 		)
 
+	async def list_templates(self, limit: int = 50, offset: int = 0) -> TemplateList:
+		"""
+		Lists templates, newest first, without their content or schemas (see :meth:`get_template`).
+
+		:param limit: Templates per page.
+		:type limit: int
+		:param offset: Templates to skip, for later pages.
+		:type offset: int
+		:rtype: TemplateList
+		"""
+		# _id breaks ties so pages don't overlap; created_at never changes, so pages stay stable.
+		page = await Template.find_all().sort("-created_at", "-_id").skip(offset).limit(limit).to_list()
+		return TemplateList(
+			templates=[
+				TemplateSummary(
+					template_id=t.id,
+					name=t.name,
+					description=t.description,
+					latest_version=t.latest_version,
+					created_at=t.created_at,
+					updated_at=t.updated_at,
+				)
+				for t in page
+			],
+			total=await Template.find_all().count(),
+		)
+
 	async def get_version(self, template_id: str, version: int | None = None) -> TemplateVersionDetail:
 		"""
 		Returns a version's source and schema; the latest when ``version`` is ``None``.
@@ -240,8 +285,7 @@ class TemplateService:
 		output_format: OutputFormat,
 	) -> RenderedDocument:
 		renderer = self.renderers.get(output_format)
-		if len(json.dumps(data, default=str).encode()) > self.config.max_data_bytes:
-			raise InvalidDataError(f"Render data exceeds {self.config.max_data_bytes} bytes")
+		self._check_data_size(data)
 		template = await self._template(template_id)
 		record = await self._version(template_id, version, template)
 		self._validate_data(record, data)
@@ -278,6 +322,28 @@ class TemplateService:
 			render_ms=rendered.render_ms,
 		)
 		return document
+
+	async def preview(self, template_id: str, data: dict[str, Any], version: int | None = None) -> TemplatePreview:
+		"""
+		Validates ``data`` like :meth:`render` and fills the template as HTML, without converting or storing it.
+
+		:param template_id: The template to fill.
+		:type template_id: str
+		:param data: Template variables (a JSON object).
+		:type data: dict[str, Any]
+		:param version: Template version; the latest when ``None``.
+		:type version: int | None
+		:return: The filled-in HTML and the version used.
+		:rtype: TemplatePreview
+		:raises NotFoundError: If the template or version doesn't exist.
+		:raises InvalidDataError: If ``data`` fails the schema or lacks a value the template uses.
+		:raises RenderError: If the template fails while rendering or times out.
+		"""
+		self._check_data_size(data)
+		record = await self._version(template_id, version)
+		self._validate_data(record, data)
+		html = await fill_html(record.content, data, self.config)
+		return TemplatePreview(template_id=template_id, template_version=record.version, html=html)
 
 	async def get_document(self, document_id: str) -> RenderedDocument:
 		"""
@@ -369,6 +435,10 @@ class TemplateService:
 		except SchemaError as exc:
 			raise InvalidTemplateError(f"Invalid JSON Schema: {exc.message}") from None
 		return serialized
+
+	def _check_data_size(self, data: dict[str, Any]) -> None:
+		if len(json.dumps(data, default=str).encode()) > self.config.max_data_bytes:
+			raise InvalidDataError(f"Render data exceeds {self.config.max_data_bytes} bytes")
 
 	@staticmethod
 	def _validate_data(record: TemplateVersion, data: dict[str, Any]) -> None:

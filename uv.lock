@@ -1041,6 +1041,9 @@ keyring = [
 memory = [
     { name = "cachetools" },
 ]
+mongodb = [
+    { name = "pymongo" },
+]
 
 [[package]]
 name = "pycparser"
@@ -1536,6 +1539,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "jinja2" },
     { name = "jsonschema" },
+    { name = "py-key-value-aio", extra = ["mongodb"] },
     { name = "pydantic-settings" },
     { name = "pypandoc-binary" },
     { name = "python-multipart" },
@@ -1560,6 +1564,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=4.0.10" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonschema", specifier = ">=4.26.0" },
+    { name = "py-key-value-aio", extras = ["mongodb"], specifier = ">=0.4.6" },
     { name = "pydantic-settings", specifier = ">=2.15.0" },
     { name = "pypandoc-binary", specifier = ">=1.17" },
     { name = "python-multipart", specifier = ">=0.0.32" },

@@ -9,6 +9,7 @@ dependencies = [
     "fastmcp>=4.0.10",
     "jinja2>=3.1.6",
     "jsonschema>=4.26.0",
+    "py-key-value-aio[mongodb]>=0.4.6",
     "pydantic-settings>=2.15.0",
     "pypandoc-binary>=1.17",
     "python-multipart>=0.0.32",

@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Template studio</title>
+<!--
+	MCP App view for open_template_studio (see app/tools/template_studio.py).
+
+	The client renders this page in a sandboxed iframe and talks to it with JSON-RPC over
+	postMessage (the MCP Apps protocol, io.modelcontextprotocol/ui). The page:
+	  1. sends ui/initialize and gets the host's theme, styles and capabilities;
+	  2. receives the open_template_studio result in ui/notifications/tool-result;
+	  3. calls preview_template and render_document with tools/call, which the client forwards
+	     to this server.
+	Everything is inline: the client's default CSP blocks external scripts and network access.
+-->
+<style>
+	:root {
+		color-scheme: light dark;
+		/* Host style variables (sent in ui/initialize) win; the fallbacks keep the page usable without them. */
+		--bg: var(--color-background-primary, light-dark(#ffffff, #1e1e1d));
+		--bg-2: var(--color-background-secondary, light-dark(#f6f6f4, #262624));
+		--bg-3: var(--color-background-tertiary, light-dark(#ececea, #30302e));
+		--text: var(--color-text-primary, light-dark(#1f1f1e, #f2f1ee));
+		--text-2: var(--color-text-secondary, light-dark(#5e5d59, #b7b5ae));
+		--danger: var(--color-text-danger, light-dark(#b42318, #f97066));
+		--danger-bg: var(--color-background-danger, light-dark(#fef3f2, #3a1f1d));
+		--success: var(--color-text-success, light-dark(#067647, #47cd89));
+		--border: var(--color-border-primary, light-dark(#dedcd6, #3d3d3a));
+		--ring: var(--color-ring-primary, light-dark(#2e6bd9, #6d9cf2));
+		--accent: var(--color-background-inverse, light-dark(#1f1f1e, #f2f1ee));
+		--on-accent: var(--color-text-inverse, light-dark(#ffffff, #1f1f1e));
+		--radius: var(--border-radius-md, 8px);
+		--radius-sm: var(--border-radius-sm, 6px);
+		--sans: var(--font-sans, system-ui, -apple-system, "Segoe UI", sans-serif);
+		--mono: var(--font-mono, ui-monospace, "SF Mono", Menlo, monospace);
+		--text-sm: var(--font-text-sm-size, 13px);
+		--text-md: var(--font-text-md-size, 14px);
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		padding: 16px;
+		background: var(--bg);
+		color: var(--text);
+		font: var(--text-md) / 1.45 var(--sans);
+	}
+	header {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+		margin-bottom: 14px;
+	}
+	h1 { font-size: var(--font-heading-sm-size, 16px); font-weight: var(--font-weight-semibold, 600); margin: 0; }
+	.muted { color: var(--text-2); font-size: var(--text-sm); }
+	.spacer { flex: 1; }
+	label.inline { display: inline-flex; align-items: center; gap: 6px; }
+	select, button, textarea { font: inherit; color: inherit; }
+	select {
+		background: var(--bg-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		padding: 4px 8px;
+	}
+	.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+	@media (max-width: 640px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+	.panel { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+	.panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+	.panel-head h2 { font-size: var(--text-sm); font-weight: var(--font-weight-semibold, 600); margin: 0; }
+	textarea {
+		width: 100%;
+		min-height: 320px;
+		resize: vertical;
+		padding: 10px;
+		background: var(--bg-2);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		font: var(--text-sm) / 1.5 var(--mono);
+		tab-size: 2;
+	}
+	textarea:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+	.status { font-size: var(--text-sm); min-height: 1.45em; }
+	.status.ok { color: var(--success); }
+	.status.error { color: var(--danger); }
+	.errors {
+		margin: 0;
+		padding: 8px 10px 8px 26px;
+		background: var(--danger-bg);
+		color: var(--danger);
+		border-radius: var(--radius-sm);
+		font: var(--text-sm) / 1.45 var(--mono);
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+	}
+	.errors:empty { display: none; }
+	/* The preview is laid out at A4 width and scaled to fit, so it looks like the printed page. */
+	.paper {
+		position: relative;
+		overflow: hidden;
+		background: var(--bg-3);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+	}
+	.paper iframe {
+		position: absolute;
+		top: 0;
+		left: 0;
+		border: 0;
+		background: #ffffff;
+		transform-origin: 0 0;
+	}
+	.paper.stale iframe { opacity: 0.55; transition: opacity 120ms; }
+	button {
+		cursor: pointer;
+		padding: 6px 12px;
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+		background: var(--bg-2);
+	}
+	button:hover:not(:disabled) { background: var(--bg-3); }
+	button.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+	button.primary:hover:not(:disabled) { opacity: 0.88; background: var(--accent); }
+	button:disabled { cursor: default; opacity: 0.5; }
+	button.link { border: 0; background: none; padding: 0; color: var(--ring); text-decoration: underline; }
+	footer { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+	.actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+	ul.documents { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+	ul.documents li {
+		display: flex;
+		gap: 10px;
+		align-items: baseline;
+		flex-wrap: wrap;
+		padding: 8px 10px;
+		background: var(--bg-2);
+		border-radius: var(--radius-sm);
+		font-size: var(--text-sm);
+	}
+	ul.documents .name { font-weight: var(--font-weight-medium, 500); overflow-wrap: anywhere; }
+	#waiting { padding: 24px 0; text-align: center; }
+	[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="waiting" class="muted">Waiting for the template…</div>
+
+<main id="studio" hidden>
+	<header>
+		<h1 id="name"></h1>
+		<label class="inline muted">Version <select id="version"></select></label>
+		<span class="spacer"></span>
+		<span id="template-id" class="muted"></span>
+	</header>
+
+	<div class="grid">
+		<section class="panel" aria-labelledby="data-heading">
+			<div class="panel-head">
+				<h2 id="data-heading">Data (JSON)</h2>
+				<button id="reset" type="button" title="Replace the data with a skeleton built from the JSON Schema">
+					Reset to sample
+				</button>
+			</div>
+			<textarea id="data" spellcheck="false" aria-describedby="data-status"></textarea>
+			<div id="data-status" class="status" role="status"></div>
+			<ul id="data-errors" class="errors"></ul>
+		</section>
+
+		<section class="panel" aria-labelledby="preview-heading">
+			<div class="panel-head">
+				<h2 id="preview-heading">Preview</h2>
+				<span class="muted">HTML; page size and margins apply in the PDF</span>
+			</div>
+			<div id="paper" class="paper">
+				<!-- No allow-scripts or allow-same-origin: the template's HTML stays inert. -->
+				<iframe id="preview" title="Template preview" sandbox="" width="794" height="1123"></iframe>
+			</div>
+		</section>
+	</div>
+
+	<footer>
+		<div class="actions">
+			<button id="render-pdf" class="primary" type="button" data-format="pdf">Render PDF</button>
+			<button id="render-docx" type="button" data-format="docx">Render DOCX</button>
+			<span id="render-status" class="status" role="status"></span>
+		</div>
+		<ul id="documents" class="documents" aria-label="Rendered documents"></ul>
+	</footer>
+</main>
+
+<script>
+"use strict";
+
+// --- MCP Apps bridge: JSON-RPC 2.0 over postMessage with the host (the chat client) ----------
+
+const PROTOCOL_VERSION = "2026-01-26";
+const pending = new Map();
+let nextId = 1;
+let hostCapabilities = {};
+
+function send(message) {
+	window.parent.postMessage({ jsonrpc: "2.0", ...message }, "*");
+}
+
+function request(method, params) {
+	const id = nextId++;
+	send({ id, method, params });
+	return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+}
+
+function notify(method, params) {
+	send({ method, params });
+}
+
+// Tool calls the host forwards to this MCP server. Resolves with the result's structuredContent;
+// rejects with the tool's error text.
+async function callTool(name, args) {
+	const result = await request("tools/call", { name, arguments: args });
+	if (result.isError) {
+		const text = (result.content || []).filter((c) => c.type === "text").map((c) => c.text).join("\n");
+		throw new Error(text || `${name} failed`);
+	}
+	return result.structuredContent;
+}
+
+const handlers = {
+	"ui/notifications/tool-result": (result) => {
+		if (result.isError) {
+			showFatal(result.content?.[0]?.text || "The template couldn't be opened.");
+		} else {
+			start(result.structuredContent);
+		}
+	},
+	"ui/notifications/tool-cancelled": () => showFatal("Opening the template was cancelled."),
+	"ui/notifications/host-context-changed": applyHostContext,
+	// Requests from the host that expect a reply.
+	"ui/resource-teardown": () => ({}),
+	"ping": () => ({}),
+};
+
+window.addEventListener("message", (event) => {
+	if (event.source !== window.parent) return;
+	const message = event.data;
+	if (!message || message.jsonrpc !== "2.0") return;
+
+	if (message.method === undefined) {
+		const call = pending.get(message.id);
+		if (!call) return;
+		pending.delete(message.id);
+		if (message.error) call.reject(new Error(message.error.message || "Request failed"));
+		else call.resolve(message.result);
+		return;
+	}
+
+	const handler = handlers[message.method];
+	const result = handler ? handler(message.params || {}) : undefined;
+	if (message.id !== undefined) {
+		if (handler) send({ id: message.id, result: result ?? {} });
+		else send({ id: message.id, error: { code: -32601, message: `Unknown method ${message.method}` } });
+	}
+});
+
+function applyHostContext(context) {
+	if (!context) return;
+	if (context.theme) {
+		document.documentElement.dataset.theme = context.theme;
+		document.documentElement.style.colorScheme = context.theme;
+	}
+	for (const [name, value] of Object.entries(context.styles?.variables || {})) {
+		if (value !== undefined && value !== null) document.documentElement.style.setProperty(name, value);
+	}
+	if (context.styles?.css?.fonts && !document.getElementById("host-fonts")) {
+		const style = document.createElement("style");
+		style.id = "host-fonts";
+		style.textContent = context.styles.css.fonts;
+		document.head.appendChild(style);
+	}
+}
+
+// Tell the host how tall the page is, so the inline frame fits it without scrolling.
+function reportSize() {
+	let scheduled = false;
+	let lastHeight = 0;
+	const measure = () => {
+		if (scheduled) return;
+		scheduled = true;
+		requestAnimationFrame(() => {
+			scheduled = false;
+			const root = document.documentElement;
+			const previous = root.style.height;
+			root.style.height = "fit-content";
+			const height = Math.ceil(root.getBoundingClientRect().height);
+			root.style.height = previous;
+			if (height !== lastHeight) {
+				lastHeight = height;
+				notify("ui/notifications/size-changed", { height });
+			}
+		});
+	};
+	measure();
+	const observer = new ResizeObserver(measure);
+	observer.observe(document.documentElement);
+	observer.observe(document.body);
+}
+
+async function connect() {
+	const init = await request("ui/initialize", {
+		protocolVersion: PROTOCOL_VERSION,
+		appInfo: { name: "template-studio", version: "1.0.0" },
+		appCapabilities: {},
+	});
+	hostCapabilities = init.hostCapabilities || {};
+	applyHostContext(init.hostContext);
+	notify("ui/notifications/initialized", {});
+	reportSize();
+}
+
+// --- Studio ------------------------------------------------------------------------------------
+
+const PAGE_WIDTH = 794; // A4 at 96 dpi, the width templates are usually designed for.
+const PAGE_HEIGHT = 1123;
+const $ = (id) => document.getElementById(id);
+
+const state = {
+	templateId: null,
+	templateName: "",
+	version: null,
+	schema: null,
+	previewSeq: 0,
+	previewTimer: null,
+};
+
+function start(session) {
+	const { template, source } = session;
+	state.templateId = template.template_id;
+	state.templateName = template.name;
+	state.version = source.version;
+	state.schema = source.json_schema;
+
+	$("name").textContent = template.name;
+	$("template-id").textContent = template.template_id;
+	const select = $("version");
+	select.replaceChildren();
+	for (const v of [...template.versions].sort((a, b) => b.version - a.version)) {
+		const option = new Option(
+			v.version === template.latest_version ? `v${v.version} (latest)` : `v${v.version}`,
+			String(v.version),
+		);
+		select.add(option);
+	}
+	select.value = String(source.version);
+
+	const data = session.template_data ?? sample(state.schema) ?? {};
+	$("data").value = JSON.stringify(data, null, 2);
+
+	$("waiting").hidden = true;
+	$("studio").hidden = false;
+	fitPreview();
+	preview();
+}
+
+function showFatal(message) {
+	const waiting = $("waiting");
+	waiting.textContent = message;
+	waiting.classList.add("status", "error");
+	waiting.hidden = false;
+	$("studio").hidden = true;
+}
+
+// A skeleton value for a JSON Schema: defaults and examples where given, otherwise placeholders.
+function sample(schema, key = "", depth = 0) {
+	if (!schema || typeof schema !== "object" || depth > 8) return null;
+	if (schema.default !== undefined) return schema.default;
+	if (Array.isArray(schema.examples) && schema.examples.length) return schema.examples[0];
+	if (schema.const !== undefined) return schema.const;
+	if (Array.isArray(schema.enum) && schema.enum.length) return schema.enum[0];
+	const variant = schema.oneOf?.[0] || schema.anyOf?.[0];
+	if (variant) return sample(variant, key, depth + 1);
+
+	let type = Array.isArray(schema.type) ? schema.type.find((t) => t !== "null") : schema.type;
+	if (!type && schema.properties) type = "object";
+	switch (type) {
+		case "object": {
+			const value = {};
+			for (const [name, property] of Object.entries(schema.properties || {})) {
+				value[name] = sample(property, name, depth + 1);
+			}
+			for (const name of schema.required || []) {
+				if (!(name in value)) value[name] = `<${name}>`;
+			}
+			return value;
+		}
+		case "array":
+			if (!schema.items) return [];
+			return Array.from({ length: Math.max(1, schema.minItems ?? 0) }, () => sample(schema.items, key, depth + 1));
+		case "string": {
+			if (schema.format === "date") return new Date().toISOString().slice(0, 10);
+			if (schema.format === "date-time") return new Date().toISOString();
+			if (schema.format === "email") return "name@example.com";
+			const text = key ? `<${key}>` : "text";
+			const max = schema.maxLength ?? Infinity;
+			// Short fields such as currency codes get the bare name, cut to fit.
+			const value = text.length <= max ? text : (key || "text").slice(0, max);
+			return value.padEnd(schema.minLength ?? 0, "x");
+		}
+		case "integer":
+		case "number": {
+			// 1 rather than 0 where allowed, so templates that divide by a value still fill.
+			let value = Math.max(1, schema.minimum ?? -Infinity, (schema.exclusiveMinimum ?? -Infinity) + 1);
+			if (schema.maximum !== undefined) value = Math.min(value, schema.maximum);
+			return type === "integer" ? Math.ceil(value) : value;
+		}
+		case "boolean":
+			return false;
+		default:
+			return null;
+	}
+}
+
+function readData() {
+	let data;
+	try {
+		data = JSON.parse($("data").value);
+	} catch (error) {
+		return { error: `Invalid JSON: ${error.message}` };
+	}
+	if (data === null || typeof data !== "object" || Array.isArray(data)) {
+		return { error: "The data must be a JSON object." };
+	}
+	return { data };
+}
+
+function setStatus(element, text, kind) {
+	element.textContent = text;
+	element.className = `status${kind ? ` ${kind}` : ""}`;
+}
+
+function showErrors(message) {
+	const list = $("data-errors");
+	list.replaceChildren();
+	if (!message) return;
+	// Schema errors come back one per line after a summary line.
+	for (const line of message.split("\n").filter(Boolean)) {
+		const item = document.createElement("li");
+		item.textContent = line;
+		list.append(item);
+	}
+}
+
+function schedulePreview() {
+	clearTimeout(state.previewTimer);
+	$("paper").classList.add("stale");
+	state.previewTimer = setTimeout(preview, 400);
+}
+
+async function preview() {
+	const { data, error } = readData();
+	if (error) {
+		setStatus($("data-status"), error, "error");
+		showErrors("");
+		setRenderEnabled(false);
+		return;
+	}
+	const seq = ++state.previewSeq;
+	setStatus($("data-status"), "Checking…");
+	try {
+		const result = await callTool("preview_template", {
+			template_id: state.templateId,
+			template_data: data,
+			version: state.version,
+		});
+		if (seq !== state.previewSeq) return; // A newer edit is already being previewed.
+		$("preview").srcdoc = result.html;
+		$("paper").classList.remove("stale");
+		setStatus($("data-status"), state.schema ? "✓ Data matches the schema" : "✓ Template filled", "ok");
+		showErrors("");
+		setRenderEnabled(true);
+	} catch (err) {
+		if (seq !== state.previewSeq) return;
+		setStatus($("data-status"), "The data can't fill this template:", "error");
+		showErrors(err.message);
+		setRenderEnabled(false);
+	}
+}
+
+function fitPreview() {
+	const paper = $("paper");
+	const scale = Math.min(1, paper.clientWidth / PAGE_WIDTH);
+	$("preview").style.transform = `scale(${scale})`;
+	paper.style.height = `${Math.round(PAGE_HEIGHT * scale)}px`;
+}
+
+function setRenderEnabled(enabled) {
+	for (const button of document.querySelectorAll("[data-format]")) button.disabled = !enabled;
+}
+
+async function render(format) {
+	const { data, error } = readData();
+	if (error) return;
+	setRenderEnabled(false);
+	setStatus($("render-status"), `Rendering ${format.toUpperCase()}…`);
+	try {
+		const document_ = await callTool("render_document", {
+			template_id: state.templateId,
+			template_data: data,
+			version: state.version,
+			output_format: format,
+		});
+		setStatus($("render-status"), "");
+		addDocument(document_);
+		tellModel(document_);
+	} catch (err) {
+		setStatus($("render-status"), err.message, "error");
+	} finally {
+		setRenderEnabled(true);
+	}
+}
+
+function formatSize(bytes) {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function addDocument(doc) {
+	const item = document.createElement("li");
+	const name = document.createElement("span");
+	name.className = "name";
+	name.textContent = doc.filename;
+	const details = document.createElement("span");
+	details.className = "muted";
+	const pages = doc.page_count == null ? [] : [`${doc.page_count} page${doc.page_count === 1 ? "" : "s"}`];
+	details.textContent = [...pages, formatSize(doc.size_bytes)].join(" · ");
+	const open = document.createElement("button");
+	open.type = "button";
+	open.className = "link";
+	open.textContent = "Download";
+	open.addEventListener("click", () => openLink(doc.download_url));
+	item.append(name, details, open);
+	$("documents").prepend(item);
+}
+
+// Links can't navigate out of the sandboxed frame; the host opens them instead.
+async function openLink(url) {
+	if (hostCapabilities.openLinks) {
+		const result = await request("ui/open-link", { url }).catch(() => ({ isError: true }));
+		if (!result?.isError) return;
+	}
+	window.open(url, "_blank", "noopener");
+}
+
+// Lets the model know about the document on the user's next message, if the host supports it.
+function tellModel(doc) {
+	if (!hostCapabilities.updateModelContext) return;
+	const text =
+		`In the template studio, the user rendered ${doc.filename} ` +
+		`(document_id ${doc.document_id}) from template ${state.templateName} v${doc.template_version}.`;
+	request("ui/update-model-context", { content: [{ type: "text", text }] }).catch(() => {});
+}
+
+$("data").addEventListener("input", schedulePreview);
+$("version").addEventListener("change", (event) => {
+	state.version = Number(event.target.value);
+	schedulePreview();
+});
+$("reset").addEventListener("click", () => {
+	$("data").value = JSON.stringify(sample(state.schema) ?? {}, null, 2);
+	schedulePreview();
+});
+for (const button of document.querySelectorAll("[data-format]")) {
+	button.addEventListener("click", () => render(button.dataset.format));
+}
+new ResizeObserver(fitPreview).observe($("paper"));
+
+connect().catch((error) => showFatal(`Couldn't connect to the host: ${error.message}`));
+</script>
+</body>
+</html>

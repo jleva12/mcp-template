@@ -15,6 +15,7 @@ from app.services.templates import (
 	CorrelationId,
 	DocumentInfo,
 	TemplateInfo,
+	TemplateList,
 	TemplateService,
 	TemplateVersionDetail,
 )
@@ -74,6 +75,14 @@ class TemplateRoutes(Routes):
 		content = await self._read_template(file)
 		with _http_errors():
 			return await self.service.add_version(template_id, content, _parse_schema(json_schema))
+
+	@get("", summary="List templates, newest first")
+	async def list_templates(
+		self,
+		limit: Annotated[int, Query(ge=1, le=200, description="Templates per page")] = 50,
+		offset: Annotated[int, Query(ge=0, description="Templates to skip, for later pages")] = 0,
+	) -> TemplateList:
+		return await self.service.list_templates(limit, offset)
 
 	@get("/{template_id}", summary="Get a template and its versions")
 	async def get_template(self, template_id: str) -> TemplateInfo:

@@ -7,18 +7,17 @@ on macOS run pytest with DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib.
 import html
 import io
 import json
-import os
 import re
 import threading
 import uuid
 import zipfile
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from pymongo import MongoClient
-from pymongo.errors import PyMongoError
 
 from app.core.auth import ApiKeyVerifier
 from app.core.database import Database
@@ -30,8 +29,6 @@ from app.services.rendering import DocxRenderer, PdfRenderer, RendererRegistry
 from app.services.templates import TemplateService
 from app.tools import TemplateTools
 from tests.conftest import MCP_HEADERS, make_settings
-
-MONGO_URL = os.environ.get("APP_TEST_MONGO_URL", "mongodb://localhost:27017")
 
 INVOICE = """<!doctype html><html><head><style>@page { size: A4; margin: 2cm }</style></head><body>
 <h1>Invoice {{ number }}</h1><p>{{ customer.name }}</p>
@@ -59,18 +56,6 @@ SCHEMA = {
 DATA = {"number": "INV-1", "customer": {"name": "Acme"}, "items": [{"description": "Widget", "price": 9.5}]}
 
 DOCX_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-
-@pytest.fixture(scope="session")
-def mongo_url() -> str:
-	client: MongoClient = MongoClient(MONGO_URL, serverSelectionTimeoutMS=1000)
-	try:
-		client.admin.command("ping")
-	except PyMongoError:
-		pytest.skip(f"MongoDB not reachable at {MONGO_URL}; start one with `docker compose up -d mongo`")
-	finally:
-		client.close()
-	return MONGO_URL
 
 
 def _build_client(mongo_url: str, tmp_path, auth: tuple = ()):
@@ -157,6 +142,27 @@ def test_upload_and_version_a_template(client):
 	v1 = client.get(f"/templates/{template_id}/versions/1").json()
 	assert v1["content"] == INVOICE
 	assert v1["has_schema"]
+
+
+def test_list_templates(client):
+	assert client.get("/templates").json() == {"templates": [], "total": 0}
+	ids = [_upload(client, name=f"Template {i}").json()["template_id"] for i in range(3)]
+
+	listed = client.get("/templates").json()
+	assert listed["total"] == 3
+	templates = listed["templates"]
+	assert {t["template_id"] for t in templates} == set(ids)
+	# Newest first. Uploads in the same millisecond tie, so check the order rather than exact positions.
+	created = [datetime.fromisoformat(t["created_at"]) for t in templates]
+	assert created == sorted(created, reverse=True)
+	# Summaries only: content, schemas and versions come from GET /templates/{id}.
+	assert set(templates[0]) == {"template_id", "name", "description", "latest_version", "created_at", "updated_at"}
+
+	pages = [client.get("/templates", params={"limit": 2, "offset": offset}).json() for offset in (0, 2)]
+	assert [t["template_id"] for page in pages for t in page["templates"]] == [t["template_id"] for t in templates]
+	assert [page["total"] for page in pages] == [3, 3]
+	assert client.get("/templates", params={"limit": 0}).status_code == 422
+	assert client.get("/templates", params={"limit": 201}).status_code == 422
 
 
 def test_invalid_uploads_are_rejected_without_using_a_version(client):
@@ -360,6 +366,7 @@ def test_api_routes_use_the_mcp_auth(mongo_url, tmp_path):
 	try:
 		with TestClient(app) as client:
 			assert _upload(client).status_code == 401
+			assert client.get("/templates").status_code == 401
 			assert client.get("/documents/doc_x").status_code == 401
 			assert _upload(client, headers={"Authorization": "Bearer k1"}).status_code == 201
 			assert client.get("/health/ready").json()["checks"] == {"mongo": "ok"}
